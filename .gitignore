@@ -1,0 +1,8 @@
+.env
+data/pdfs/
+data/chunks.jsonl
+data/embeddings.npy
+data/bm25.pkl
+__pycache__/
+*.pyc
+*.log

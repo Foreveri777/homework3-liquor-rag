@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>白酒财报问答知识库</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: "Microsoft YaHei", system-ui, sans-serif; margin: 0; background: #f5f6f8; color: #222; }
+  header { background: #1f3864; color: #fff; padding: 14px 28px; }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  header p { font-size: 12px; margin: 4px 0 0; opacity: .75; }
+  main { max-width: 1080px; margin: 24px auto; padding: 0 16px; }
+  .ask-row { display: flex; gap: 10px; }
+  input { flex: 1; padding: 12px 14px; font-size: 15px; border: 1px solid #ccd; border-radius: 8px; }
+  button { padding: 12px 22px; font-size: 15px; border: 0; border-radius: 8px; background: #1f3864; color: #fff; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: wait; }
+  .card { background: #fff; border: 1px solid #e3e5ea; border-radius: 10px; padding: 18px 20px; margin-top: 18px; }
+  .answer { font-size: 15px; line-height: 1.9; white-space: pre-wrap; }
+  .cite { color: #185FA5; font-size: 12px; vertical-align: super; cursor: pointer; }
+  .src { border-top: 1px dashed #dde; padding: 10px 0; font-size: 13px; }
+  .src b { color: #1f3864; }
+  .src .meta { color: #667; margin-left: 8px; }
+  .src .bar { display: inline-block; height: 8px; border-radius: 4px; background: #85B7EB; vertical-align: middle; margin-left: 8px; }
+  .src pre { display: none; background: #f7f8fa; border-radius: 6px; padding: 10px; font-size: 12.5px; white-space: pre-wrap; max-height: 260px; overflow: auto; }
+  .src.open pre { display: block; }
+  .hint { color: #889; font-size: 13px; margin-top: 10px; }
+  #status { margin-top: 14px; font-size: 13px; color: #667; }
+</style>
+</head>
+<body>
+<header>
+  <h1>白酒上市公司财报问答知识库</h1>
+  <p>10 家白酒企业 · 2025 年报 + 2026 半年报 · 向量(Qwen3-Embedding-0.6B) + BM25 混合召回 · DeepSeek 作答</p>
+</header>
+<main>
+  <div class="ask-row">
+    <input id="q" placeholder="提问，例如：贵州茅台上半年营业收入是多少？">
+    <button id="go">提问</button>
+  </div>
+  <div class="hint">试试跨公司题：对比贵州茅台和五粮液的营收与净利润增速</div>
+  <div id="status"></div>
+  <div id="out"></div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+
+function renderAnswer(text) {
+  return text.replace(/\[(\d+)\]/g,
+    '<span class="cite" data-n="$1">[$1]</span>');
+}
+
+async function ask() {
+  const q = $("#q").value.trim();
+  if (!q) return;
+  $("#go").disabled = true;
+  $("#out").innerHTML = "";
+  $("#status").textContent = "① 问题向量化 + BM25 打分中……";
+  try {
+    const t0 = Date.now();
+    $("#status").textContent = "② 混合召回文本块……";
+    const r = await fetch("/api/ask", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({question: q})
+    });
+    const data = await r.json();
+    if (data.error) { $("#status").textContent = "出错：" + data.error; return; }
+    $("#status").textContent = "";
+    const srcs = data.sources.map((s, i) => `
+      <div class="src" id="src-${i+1}">
+        <b>[${i+1}]</b> ${s.company} · ${s.report} · 第 ${s.page} 页
+        <span class="meta">${s.section || ""}</span>
+        <span class="meta">混合分 ${s.hybrid}（向量 ${s.cos} / BM25 ${s.bm25}）</span>
+        <span class="bar" style="width:${Math.round(s.hybrid*120)}px"></span>
+        <a href="#" onclick="this.closest('.src').classList.toggle('open');return false;">展开原文</a>
+        <pre>${s.text.replace(/</g,"&lt;")}</pre>
+      </div>`).join("");
+    $("#out").innerHTML = `
+      <div class="card"><div class="answer">${renderAnswer(data.answer)}</div></div>
+      <div class="card"><b>召回的 ${data.sources.length} 个文本块</b>（点击编号跳原文）${srcs}</div>`;
+    document.querySelectorAll(".cite").forEach(el => {
+      el.onclick = () => {
+        const t = document.getElementById("src-" + el.dataset.n);
+        if (t) { t.classList.add("open"); t.scrollIntoView({behavior:"smooth"}); }
+      };
+    });
+  } catch (e) {
+    $("#status").textContent = "请求失败：" + e;
+  } finally {
+    $("#go").disabled = false;
+  }
+}
+$("#go").onclick = ask;
+$("#q").addEventListener("keydown", e => { if (e.key === "Enter") ask(); });
+</script>
+</body>
+</html>

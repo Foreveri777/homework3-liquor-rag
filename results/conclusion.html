@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 14mm; }
+  body { font-family: "Microsoft YaHei", sans-serif; font-size: 10.5pt; color: #222; line-height: 1.62; }
+  h1 { font-size: 15pt; margin: 0 0 2px; color: #1f3864; }
+  .sub { color: #667; font-size: 9pt; margin-bottom: 10px; }
+  h2 { font-size: 11.5pt; margin: 12px 0 4px; color: #1f3864; border-left: 3px solid #1f3864; padding-left: 6px; }
+  table { border-collapse: collapse; width: 100%; font-size: 9pt; }
+  th, td { border: 1px solid #ccd; padding: 3px 6px; text-align: left; }
+  th { background: #eef1f7; }
+  .ok { color: #0F6E56; } .no { color: #A32D2D; } .part { color: #854F0B; }
+  p { margin: 4px 0; }
+  ul { margin: 4px 0 4px 18px; padding: 0; }
+</style>
+</head>
+<body>
+<h1>白酒财报问答知识库 · 一页结论</h1>
+<div class="sub">方向 A ｜ 10 家白酒上市公司（茅台/五粮液/汾酒/洋河/老窖/古井/今世缘/水井坊/舍得/口子窖）×（2025 年报 + 2026 半年报）｜ 7,312 块 ｜ Qwen3-Embedding-0.6B（1024 维）+ BM25 等权混合 + 公司/报告元数据过滤 ｜ top-6 ｜ DeepSeek 作答，每句带出处</div>
+
+<h2>10 道题结果</h2>
+<table>
+<tr><th>题型</th><th>题号</th><th>结果</th><th>说明</th></tr>
+<tr><td>单公司查数（数字在显眼章节）</td><td>Q1 茅台营收 / Q2 五粮液净利 / Q3 汾酒现金流 / Q4 洋河分红</td><td class="ok">✅ 全对 4/4</td><td>每句带 [n] 出处，数字回原文核对一致</td></tr>
+<tr><td>单公司查数（数字埋在附注/科目明细表）</td><td>Q5 销售费用 / Q6 合同负债 / Q8 高档酒收入</td><td class="no">❌ 召回失败 0/3</td><td>数据其实在库里（老窖销售费用 13.30 亿在 p13 等），未被 top-6 召回，模型诚实答"材料未覆盖"</td></tr>
+<tr><td>报告本身未披露该口径</td><td>Q7 今世缘省内收入</td><td class="no">❌ 正确拒答</td><td>半年报没有"分地区"拆分表，模型没编造——拒答是对的</td></tr>
+<tr><td>跨公司全景题</td><td>Q9 茅台vs五粮液增速 / Q10 三家存货对比</td><td class="part">⚠️ 部分对</td><td>一方召到一方没召到：Q9 只拿到茅台；Q10 拿到洋河/老窖、漏汾酒 143.92 亿（在 p49）</td></tr>
+</table>
+
+<h2>哪类题答得好，为什么</h2>
+<ul>
+<li><b>查数题（答案在"主要会计数据/利润分配"等显眼章节）答得最好</b>：表格已被按行列还原成「表格行｜科目:x｜本期数:y」，正文与表格同库切块，向量和 BM25 都容易命中。</li>
+<li>模型侧表现稳定：系统提示要求"只依据资料块、逐句角标、未覆盖明说"，全程没有编造数字。</li>
+</ul>
+
+<h2>哪类题翻车，为什么</h2>
+<ul>
+<li><b>附注/科目明细表里的具体数字召回失败</b>：这类块几乎全是数字碎片，语义向量对它们不敏感；BM25 又被"营业收入/公司/上半年"等高频通用词主导，"销售费用/合同负债"这种关键科目词权重不够，top-6 被"同义但不对"的块占满。</li>
+<li><b>跨公司对比题容易"半边到"</b>：一次召回 6 个块要同时装下两三家公司的证据，容量不够；且各公司表述口径不同（"营业收入"vs"营业总收入"），进一步稀释了命中率。</li>
+</ul>
+
+<h2>做过的改进与还能怎么改</h2>
+<ul>
+<li>已加<b>公司/报告元数据过滤</b>：问题点名公司就先限定范围，跨公司题限定到提到的几家——效果立竿见影，把"张冠李戴用错公司数字"消掉了（对比改进前 Q5 把舍得的销售费用当成无关块列出）。</li>
+<li>下一步可做（本次未做）：BM25 去停用词、top-k 从 6 提到 12、附注表格单独建二级索引、跨公司题先拆成"每家公司各召回一轮"的多路取证。</li>
+</ul>
+
+<h2>一句话结论</h2>
+<p><b>同一批财报："查一个确定科目的确定数字"适合建库（召回对就全对，还带出处）；但"口径不确定、要跨公司拼证据"的题，建库容易翻车——这类恰恰是微调（方向 B）想解决的问题：把口径和答法写进权重，而不是每次现找。</b></p>
+</body>
+</html>
